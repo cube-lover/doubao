@@ -1,6 +1,15 @@
 name: astrbot_plugin_doubao
+<<<<<<< HEAD
 desc: 豆包即梦生成。        使用方法：输入db设置查看,api网址https://missqiu.icu/api_details.php?id=18申请免费密钥
 help: 使用方法：db设置查看
 version: v1.0
 author: cube-lover
 repo: https://github.com/cube-lover/doubao
+=======
+desc: 豆包即梦生成,使用方法：输入db设置查看,api网址https://missqiu.icu/api_details.php?id=18申请免费密钥
+help: 使用方法：db设置查看
+version: v1.0
+author: cube-lover
+repo: https://github.com/cube-lover/doubao
+
+>>>>>>> 5099acbabd0d5c49b01149d2be88bc9177c78a9f
