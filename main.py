@@ -1,4 +1,4 @@
-from astrbot.api.message_components import *
+from astrbot.api.message_components import * 
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
@@ -28,39 +28,70 @@ class DouBaoDraw(Star):
         self.current_ratio = self.default_ratio
         self.current_model = self.default_model
 
-    # ---------------- 新增：带重试的消息发送方法 ----------------
-    async def _send_message_with_retry(self, event: AstrMessageEvent, chain, max_retries=3):
-        """发送消息并重试机制"""
-        for attempt in range(max_retries):
+    # ---------------- 改进的图片发送方法：失败时重新生成 ----------------
+    async def _send_images_with_regeneration(self, event: AstrMessageEvent, desc, image_url=None, max_retries=2):
+        """发送图片，如果失败则重新生成"""
+        original_desc = desc  # 保存原始描述
+        
+        for attempt in range(max_retries + 1):  # 总尝试次数 = 初始 + 重试次数
             try:
-                await event.send(chain)
-                return True
+                # 每次重试都重新调用API获取新图片
+                urls = await self._call_doubao_api(original_desc, image_url)
+                if not urls:
+                    if attempt < max_retries:
+                        logger.warning(f"图片生成失败，第 {attempt + 1} 次重试...")
+                        await asyncio.sleep(2)
+                        continue
+                    else:
+                        yield event.plain_result("❌ 图片生成失败，请稍后重试")
+                        return
+
+                # 尝试发送图片
+                success = True
+                try:
+                    # 发送第一张图片
+                    if urls:
+                        chain = event.chain_result([Plain(f"🖼️ 图片 1：\n"), Image.fromURL(urls[0])])
+                        await event.send(chain)
+                    
+                    # 发送其他图片
+                    if len(urls) > 1:
+                        chain_components = [Plain("🖼️ 其他图片：\n")]
+                        for i, url in enumerate(urls[1:], 2):
+                            chain_components.extend([
+                                Plain(f"\n图片 {i}：\n"),
+                                Image.fromURL(url)
+                            ])
+                        chain = event.chain_result(chain_components)
+                        await event.send(chain)
+                
+                except Exception as e:
+                    error_msg = str(e)
+                    if any(err in error_msg for err in ["rich media transfer failed", "无效或过期的文件", "文件 token"]):
+                        if attempt < max_retries:
+                            logger.warning(f"图片URL可能过期，第 {attempt + 1} 次重新生成...")
+                            await asyncio.sleep(2)
+                            success = False
+                            continue
+                        else:
+                            logger.error(f"图片发送最终失败: {error_msg}")
+                            yield event.plain_result("❌ 图片发送失败，图片链接可能已过期")
+                            return
+                    else:
+                        raise e
+                
+                # 如果发送成功，退出循环
+                if success:
+                    return
+                    
             except Exception as e:
-                error_msg = str(e)
-                if "rich media transfer failed" in error_msg and attempt < max_retries - 1:
-                    logger.warning(f"图片发送失败，第 {attempt + 1} 次重试...")
-                    await asyncio.sleep(2)  # 等待2秒后重试
+                logger.error(f"图片处理过程中出错: {e}")
+                if attempt < max_retries:
+                    await asyncio.sleep(2)
                     continue
                 else:
-                    logger.error(f"消息发送失败: {error_msg}")
-                    raise e
-        return False
-
-    async def _send_image_chain_with_retry(self, event: AstrMessageEvent, chain_components, max_retries=3):
-        """发送图片消息链并重试"""
-        try:
-            chain = event.chain_result(chain_components)
-            await self._send_message_with_retry(event, chain, max_retries)
-            return True
-        except Exception as e:
-            logger.error(f"图片消息链发送失败: {e}")
-            # 发送纯文本替代
-            try:
-                text_chain = event.plain_result("❌ 图片发送失败，请稍后重试")
-                await event.send(text_chain)
-            except:
-                pass
-            return False
+                    yield event.plain_result("❌ 图片处理失败，请稍后重试")
+                    return
 
     # ---------------- 文生图 ----------------
     @filter.command("db")
@@ -75,32 +106,10 @@ class DouBaoDraw(Star):
             f"🎨 正在生成图片...\n描述：{desc}\n风格：{self.current_style}\n比例：{self.current_ratio}\n模型：{self.current_model}"
         )
 
-        urls = await self._call_doubao_api(desc)
-        if not urls:
-            yield event.plain_result("❌ 图片生成失败")
-            return
-
-        # 发送第一张图片（带重试）
-        if urls:
-            success = await self._send_image_chain_with_retry(
-                event,
-                [Plain(f"🖼️ 图片 1：\n"), Image.fromURL(urls[0])]
-            )
-            if not success:
-                return
-
-        # 发送其他图片（带重试）
-        if len(urls) > 1:
-            chain_components = [Plain("🖼️ 其他图片：\n")]
-            for i, url in enumerate(urls[1:], 2):
-                chain_components.extend([
-                    Plain(f"\n图片 {i}：\n"),
-                    Image.fromURL(url)
-                ])
-
-            success = await self._send_image_chain_with_retry(event, chain_components)
-            if not success:
-                return
+        # 使用新的发送方法
+        async for result in self._send_images_with_regeneration(event, desc):
+            if result:
+                yield result
 
     # ---------------- 图生图 ----------------
     @filter.command("jm")
@@ -112,15 +121,15 @@ class DouBaoDraw(Star):
             return
 
         desc = parts[1].strip()
-        image_url = await self._get_image_url_from_event(event)
+        input_image_url = await self._get_image_url_from_event(event)
 
         # 如果没有找到图片，再尝试 @用户头像
-        if not image_url and len(parts) >= 3:
+        if not input_image_url and len(parts) >= 3:
             qq = self._extract_qq_from_at(parts[2])
             if qq:
-                image_url = f"https://q.qlogo.cn/g?b=qq&nk={qq}&s=640"
+                input_image_url = f"https://q.qlogo.cn/g?b=qq&nk={qq}&s=640"
 
-        if not image_url:
+        if not input_image_url:
             yield event.plain_result("❌ 没有找到图片，请发送图片或@用户或引用图片/GIF")
             return
 
@@ -128,32 +137,10 @@ class DouBaoDraw(Star):
             f"🎨 正在基于图片生成...\n描述：{desc}\n风格：{self.current_style}\n比例：{self.current_ratio}\n模型：{self.current_model}"
         )
 
-        urls = await self._call_doubao_api(desc, image_url)
-        if not urls:
-            yield event.plain_result("❌ 图片生成失败")
-            return
-
-        # 发送第一张图片（带重试）
-        if urls:
-            success = await self._send_image_chain_with_retry(
-                event,
-                [Plain(f"🖼️ 图片 1：\n"), Image.fromURL(urls[0])]
-            )
-            if not success:
-                return
-
-        # 发送其他图片（带重试）
-        if len(urls) > 1:
-            chain_components = [Plain("🖼️ 其他图片：\n")]
-            for i, url in enumerate(urls[1:], 2):
-                chain_components.extend([
-                    Plain(f"\n图片 {i}：\n"),
-                    Image.fromURL(url)
-                ])
-
-            success = await self._send_image_chain_with_retry(event, chain_components)
-            if not success:
-                return
+        # 使用新的发送方法
+        async for result in self._send_images_with_regeneration(event, desc, input_image_url):
+            if result:
+                yield result
 
     # ---------------- 设置命令 ----------------
     @filter.command("切换风格")
@@ -226,45 +213,24 @@ class DouBaoDraw(Star):
                   "highest resolution, ultra-clear, and with the finest photorealistic quality possible, with enhanced realistic lighting, shadows, and reflections.")
 
         # 获取图片
-        image_url = await self._get_image_url_from_event(event)
-        if not image_url:
+        input_image_url = await self._get_image_url_from_event(event)
+        if not input_image_url:
             # 尝试@用户头像
             m = re.search(r'\d+', event.message_obj.message_str)
             if m:
                 qq = m.group(0)
-                image_url = f"https://q.qlogo.cn/g?b=qq&nk={qq}&s=640"
+                input_image_url = f"https://q.qlogo.cn/g?b=qq&nk={qq}&s=640"
 
-        if not image_url:
+        if not input_image_url:
             yield event.plain_result("❌ 没有找到图片，请发送图片或@用户或引用图片/GIF")
             return
 
         yield event.plain_result("🎨 正在生成手办化图片...")
-        urls = await self._call_doubao_api(prompt, image_url)
-        if not urls:
-            yield event.plain_result("❌ 手办化生成失败")
-            return
 
-        # 发送第一张图片（带重试）
-        if urls:
-            success = await self._send_image_chain_with_retry(
-                event,
-                [Plain(f"🖼️ 图片 1：\n"), Image.fromURL(urls[0])]
-            )
-            if not success:
-                return
-
-        # 发送其他图片（带重试）
-        if len(urls) > 1:
-            chain_components = [Plain("🖼️ 其他图片：\n")]
-            for i, url in enumerate(urls[1:], 2):
-                chain_components.extend([
-                    Plain(f"\n图片 {i}：\n"),
-                    Image.fromURL(url)
-                ])
-
-            success = await self._send_image_chain_with_retry(event, chain_components)
-            if not success:
-                return
+        # 使用新的发送方法
+        async for result in self._send_images_with_regeneration(event, prompt, input_image_url):
+            if result:
+                yield result
 
     # ---------------- 核心修复：图片获取 ----------------
     async def _get_image_url_from_event(self, event: AstrMessageEvent) -> str:
