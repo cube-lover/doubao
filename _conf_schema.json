@@ -1,0 +1,40 @@
+{
+  "api_url": {
+    "type": "string",
+    "description": "API请求地址",
+    "default": "https://missqiu.icu/API/doubaodraw.php"
+  },
+  "apikey": {
+    "type": "string",
+    "description": "API密钥",
+    "hint": "请在API提供商处获取您的apikey"
+  },
+  "conversation_id": {
+    "type": "string",
+    "description": "豆包对话conversation_id",
+    "hint": "豆包对话的conversation_id参数"
+  },
+  "cookie": {
+    "type": "string", 
+    "description": "豆包Cookie",
+    "hint": "豆包账号的Cookie信息"
+  },
+  "default_style": {
+    "type": "string",
+    "description": "默认绘画风格",
+    "hint": "可选风格：人像摄影、电影写真、中国风、动漫、3D渲染、赛博朋克、CG动画、水墨画、油画、古典、水彩画、卡通、平面插画、风景、港风动漫、像素风格、荧光绘画、彩铅画、手办、儿童绘画、抽象、瑞笔插画、二次元、油墨印刷、版画、莫奈、毕加索、复古动漫、绘本等",
+    "default": "真实"
+  },
+  "default_ratio": {
+    "type": "string", 
+    "description": "默认绘画比例",
+    "options": ["9:16", "2:3", "3:4", "4:3", "1:1", "3:2", "16:9"],
+    "default": "16:9"
+  },
+  "default_model": {
+    "type": "string",
+    "description": "默认模型", 
+    "options": ["Seedream 4.0", "Seedream 3.0"],
+    "default": "Seedream 4.0"
+  }
+}
