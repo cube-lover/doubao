@@ -28,6 +28,40 @@ class DouBaoDraw(Star):
         self.current_ratio = self.default_ratio
         self.current_model = self.default_model
 
+    # ---------------- 新增：带重试的消息发送方法 ----------------
+    async def _send_message_with_retry(self, event: AstrMessageEvent, chain, max_retries=3):
+        """发送消息并重试机制"""
+        for attempt in range(max_retries):
+            try:
+                await event.send(chain)
+                return True
+            except Exception as e:
+                error_msg = str(e)
+                if "rich media transfer failed" in error_msg and attempt < max_retries - 1:
+                    logger.warning(f"图片发送失败，第 {attempt + 1} 次重试...")
+                    await asyncio.sleep(2)  # 等待2秒后重试
+                    continue
+                else:
+                    logger.error(f"消息发送失败: {error_msg}")
+                    raise e
+        return False
+
+    async def _send_image_chain_with_retry(self, event: AstrMessageEvent, chain_components, max_retries=3):
+        """发送图片消息链并重试"""
+        try:
+            chain = event.chain_result(chain_components)
+            await self._send_message_with_retry(event, chain, max_retries)
+            return True
+        except Exception as e:
+            logger.error(f"图片消息链发送失败: {e}")
+            # 发送纯文本替代
+            try:
+                text_chain = event.plain_result("❌ 图片发送失败，请稍后重试")
+                await event.send(text_chain)
+            except:
+                pass
+            return False
+
     # ---------------- 文生图 ----------------
     @filter.command("db")
     async def generate_image(self, event: AstrMessageEvent):
@@ -46,19 +80,27 @@ class DouBaoDraw(Star):
             yield event.plain_result("❌ 图片生成失败")
             return
 
-        # 先发送第一张图片
+        # 发送第一张图片（带重试）
         if urls:
-            yield event.chain_result([Plain(f"🖼️ 图片 1：\n"), Image.fromURL(urls[0])])
+            success = await self._send_image_chain_with_retry(
+                event,
+                [Plain(f"🖼️ 图片 1：\n"), Image.fromURL(urls[0])]
+            )
+            if not success:
+                return
 
-        # 如果有更多图片，用消息链一起发送
+        # 发送其他图片（带重试）
         if len(urls) > 1:
-            chain = [Plain("🖼️ 其他图片：\n")]
+            chain_components = [Plain("🖼️ 其他图片：\n")]
             for i, url in enumerate(urls[1:], 2):
-                chain.extend([
+                chain_components.extend([
                     Plain(f"\n图片 {i}：\n"),
                     Image.fromURL(url)
                 ])
-            yield event.chain_result(chain)
+
+            success = await self._send_image_chain_with_retry(event, chain_components)
+            if not success:
+                return
 
     # ---------------- 图生图 ----------------
     @filter.command("jm")
@@ -91,21 +133,29 @@ class DouBaoDraw(Star):
             yield event.plain_result("❌ 图片生成失败")
             return
 
-        # 先发送第一张图片
+        # 发送第一张图片（带重试）
         if urls:
-            yield event.chain_result([Plain(f"🖼️ 图片 1：\n"), Image.fromURL(urls[0])])
+            success = await self._send_image_chain_with_retry(
+                event,
+                [Plain(f"🖼️ 图片 1：\n"), Image.fromURL(urls[0])]
+            )
+            if not success:
+                return
 
-        # 如果有更多图片，用消息链一起发送
+        # 发送其他图片（带重试）
         if len(urls) > 1:
-            chain = [Plain("🖼️ 其他图片：\n")]
+            chain_components = [Plain("🖼️ 其他图片：\n")]
             for i, url in enumerate(urls[1:], 2):
-                chain.extend([
+                chain_components.extend([
                     Plain(f"\n图片 {i}：\n"),
                     Image.fromURL(url)
                 ])
-            yield event.chain_result(chain)
 
-    # ---------------- 设置命令（修复：移出image_to_image方法）---------------
+            success = await self._send_image_chain_with_retry(event, chain_components)
+            if not success:
+                return
+
+    # ---------------- 设置命令 ----------------
     @filter.command("切换风格")
     async def switch_style(self, event: AstrMessageEvent, style: str):
         self.current_style = style
@@ -194,19 +244,27 @@ class DouBaoDraw(Star):
             yield event.plain_result("❌ 手办化生成失败")
             return
 
-        # 先发送第一张图片
+        # 发送第一张图片（带重试）
         if urls:
-            yield event.chain_result([Plain(f"🖼️ 图片 1：\n"), Image.fromURL(urls[0])])
+            success = await self._send_image_chain_with_retry(
+                event,
+                [Plain(f"🖼️ 图片 1：\n"), Image.fromURL(urls[0])]
+            )
+            if not success:
+                return
 
-        # 如果有更多图片，用消息链一起发送
+        # 发送其他图片（带重试）
         if len(urls) > 1:
-            chain = [Plain("🖼️ 其他图片：\n")]
+            chain_components = [Plain("🖼️ 其他图片：\n")]
             for i, url in enumerate(urls[1:], 2):
-                chain.extend([
+                chain_components.extend([
                     Plain(f"\n图片 {i}：\n"),
                     Image.fromURL(url)
                 ])
-            yield event.chain_result(chain)
+
+            success = await self._send_image_chain_with_retry(event, chain_components)
+            if not success:
+                return
 
     # ---------------- 核心修复：图片获取 ----------------
     async def _get_image_url_from_event(self, event: AstrMessageEvent) -> str:

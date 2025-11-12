@@ -7,7 +7,7 @@
   "apikey": {
     "type": "string",
     "description": "API密钥",
-    "hint": "请在API提供商处获取您的apikey"
+    "hint": "从叶的秋官网登录免费获取无限量API密钥"
   },
   "conversation_id": {
     "type": "string",
