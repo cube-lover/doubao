@@ -7,18 +7,17 @@
   "apikey": {
     "type": "string",
     "description": "API密钥",
-    "hint": "从叶的秋官网登录免费获取无限量API密钥"
+    "hint": "请在API提供商处获取您的apikey"
   },
-  "conversation_id": {
-    "type": "string",
-    "description": "豆包对话conversation_id",
-    "hint": "豆包对话的conversation_id参数"
-  },
-  "cookie": {
-    "type": "string", 
-    "description": "豆包Cookie",
-    "hint": "豆包账号的Cookie信息"
-  },
+  "cookie_list": {
+      "type": "list",
+      "description": "豆包Cookie对列表",
+      "hint": "格式: conversation_id:cookie，每行一组，conversation_id在前",
+      "default": [
+        "conversation_id_1:cookie_value_1",
+        "conversation_id_2:cookie_value_2"
+      ]
+    },
   "default_style": {
     "type": "string",
     "description": "默认绘画风格",
@@ -36,5 +35,14 @@
     "description": "默认模型", 
     "options": ["Seedream 4.0", "Seedream 3.0"],
     "default": "Seedream 4.0"
-  }
+  },
+  "prompt_list": {
+      "description": "生图触发词与提示词",
+      "hint": "格式为 触发词:提示词。使用 #lm添加 <触发词>:<提示词> 来动态管理。",
+      "type": "list",
+      "default": [
+          "手办化:Please accurately transform the main subject in this photo into a realistic, masterpiece-like 1/7 scale PVC statue. The statue should be placed on a round plastic base and occupy a small portion of the scene, so that the tabletop, surrounding objects, and background are clearly visible and well balanced. Behind the statue, place a box with a large, clear transparent front window showing the main artwork, product name, brand logo, barcode, and a small specification or authenticity verification panel. A small price tag sticker should be attached to a corner of the box. A computer monitor is placed at the back, displaying the ZBrush modeling process of the statue. The viewpoint should be pulled back enough to include the entire statue, packaging box, monitor, and most of the tabletop in the frame, without cutting off any important elements or the edges of the desk. The tabletop should contain clearly visible, photorealistic objects such as books, notebooks, pens, smartphones, coffee cups, mugs, small handcrafts, miniature pets, and small collectible figures of well-known cartoon and animated characters, arranged naturally and randomly. Emphasize all objects using weighting so they appear clearly in the generated image: ((desk with books, smartphone, coffee cup, pens, small handcrafts, miniature pets, cartoon character figures)). The miniature pets and cartoon character figures on the desk should have colors matching or harmonizing with the main statue’s primary colors, not plain white, and each miniature pet or cartoon figure should be approximately one-third the height of the main statue, arranged naturally so they interact or visually connect with the main character. The smartphone on the desk should have a very clearly visible wallpaper showing the main statue, large enough to be immediately recognizable, and also display standard apps and interface as on a real phone. Ensure the entire scene has natural and dynamic lighting with realistic shadows and reflections on all objects, emphasizing depth and three-dimensionality, and is rendered in ultra-high definition with maximum clarity and photorealistic details. This ensures the environment is fully visible and immersive while the statue remains the focal point.  Special emphasis on the statue’s face and texture: The facial features must be perfectly restored, highly detailed, and ultra-HD, capturing expressions and details accurately from the original photo. The PVC material of the statue must appear realistic and tangible, with natural texture, subtle reflections, and carefully rendered light and shadow to enhance volume and realism. The figure should have a small amount of shadow and lighting variation on the body and face to further enhance depth and three-dimensionality. The statue, packaging, and all surrounding items must be photorealistic, with proper lighting, reflections, and 3D dimensionality. No outline lines should be present, and the statue must not appear flat. Guidelines: Repair any missing parts carefully; no poorly executed elements allowed. Human figures (if applicable) must have natural body parts, coordinated movements, and correct proportions. If the original photo is not full-body, supplement the statue to make it a full-body version. Human expressions and movements must match the photo exactly. The figure's head should not be too large, legs not too short, and overall figure not stunted (ignore for chibi-style designs). For animals, reduce fur realism and detail so it looks more like a statue than a real creature. Pay attention to perspective: near objects larger, distant objects smaller. Additional emphasis: Ensure all objects on the desk, the statue, the box, and the monitor are fully visible, the composition is balanced, and the scene feels natural and lived-in. The environment should be immersive, while the hand-painted statue face is ultra-detailed, realistic, and has subtle shadows for depth. Render everything in the highest resolution, ultra-clear, and with the finest photorealistic quality possible, with enhanced realistic lighting, shadows, and reflections."
+        
+      ]
+  } 
 }
